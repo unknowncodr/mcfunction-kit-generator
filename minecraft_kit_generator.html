@@ -1,0 +1,1895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minecraft Kit Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    min-height: 100vh;
+  }
+
+  header {
+    background: #0f3460;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 2px solid #16213e;
+  }
+
+  header .logo {
+    font-size: 24px;
+    font-weight: 700;
+    color: #4ecca3;
+    letter-spacing: 1px;
+  }
+
+  header .subtitle {
+    font-size: 13px;
+    color: #a0a0b0;
+  }
+
+  .texture-path-wrap {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .texture-path-wrap label {
+    font-size: 12px;
+    color: #a0a0b0;
+    white-space: nowrap;
+  }
+
+  #texture-path {
+    background: #0f1b35;
+    border: 1px solid #2a3f6f;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 12px;
+    padding: 6px 10px;
+    width: 200px;
+    outline: none;
+  }
+
+  #texture-path:focus { border-color: #4ecca3; }
+
+  .texture-status {
+    font-size: 11px;
+    color: #8090b0;
+    white-space: nowrap;
+  }
+
+  .texture-status.ok { color: #4ecca3; }
+  .texture-status.error { color: #e24b4a; }
+
+  .main {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    height: calc(100vh - 61px);
+  }
+
+  /* LEFT PANEL - Item Search */
+  .sidebar {
+    background: #16213e;
+    border-right: 1px solid #0f3460;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 14px 16px 10px;
+    background: #1a2744;
+    border-bottom: 1px solid #0f3460;
+  }
+
+  .sidebar-header h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4ecca3;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  #item-search {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0f1b35;
+    border: 1px solid #2a3f6f;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 13px;
+    outline: none;
+  }
+
+  #item-search:focus { border-color: #4ecca3; }
+
+  .filter-tabs {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .filter-tab {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    background: #0f1b35;
+    border: 1px solid #2a3f6f;
+    color: #a0a0b0;
+    transition: all 0.15s;
+  }
+
+  .filter-tab.active, .filter-tab:hover {
+    background: #4ecca3;
+    color: #0f1b35;
+    border-color: #4ecca3;
+    font-weight: 600;
+  }
+
+  .item-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 4px;
+    align-content: start;
+  }
+
+  .item-list::-webkit-scrollbar { width: 6px; }
+  .item-list::-webkit-scrollbar-track { background: #0f1b35; }
+  .item-list::-webkit-scrollbar-thumb { background: #2a3f6f; border-radius: 3px; }
+
+  .mc-item {
+    background: #1a2744;
+    border: 1px solid #2a3f6f;
+    border-radius: 4px;
+    padding: 6px 4px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .mc-item:hover {
+    border-color: #4ecca3;
+    background: #1f3060;
+  }
+
+  .mc-item .item-icon {
+    font-size: 22px;
+    display: block;
+    line-height: 1;
+  }
+
+  .mc-item .item-icon img {
+    width: 28px;
+    height: 28px;
+    image-rendering: pixelated;
+    display: block;
+    margin: 0 auto;
+  }
+
+  /* 3D isometric block model — mirrors Minecraft's GUI block projection */
+  .block-model {
+    width: 28px;
+    height: 28px;
+    position: relative;
+    perspective: 100px;
+    margin: 0 auto;
+  }
+
+  .block-model .cube {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transform: rotateX(30deg) rotateY(-45deg) scale(0.62);
+  }
+
+  .block-model .face {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    backface-visibility: hidden;
+    overflow: hidden;
+  }
+
+  .block-model .face img {
+    width: 16px;
+    height: 16px;
+    image-rendering: pixelated;
+    display: block;
+  }
+
+  .block-model .face-top    { transform: translate(-50%,-50%) rotateX(90deg) translateZ(8px); filter: brightness(1.18); }
+  .block-model .face-left   { transform: translate(-50%,-50%) rotateY(-90deg) translateZ(8px); filter: brightness(0.72); }
+  .block-model .face-right  { transform: translate(-50%,-50%) translateZ(8px); filter: brightness(0.92); }
+
+  /* Slot variants — scale the same cube up for bigger inventory slots */
+  .inv-slot .block-model, .hotbar-slot .block-model { width: 32px; height: 32px; perspective: 110px; }
+  .inv-slot .block-model .face, .hotbar-slot .block-model .face { width: 18px; height: 18px; }
+  .inv-slot .block-model .face img, .hotbar-slot .block-model .face img { width: 18px; height: 18px; }
+  .inv-slot .block-model .cube, .hotbar-slot .block-model .cube { transform: rotateX(30deg) rotateY(-45deg) scale(0.62); }
+  .inv-slot .block-model .face-top, .hotbar-slot .block-model .face-top { transform: translate(-50%,-50%) rotateX(90deg) translateZ(9px); filter: brightness(1.18); }
+  .inv-slot .block-model .face-left, .hotbar-slot .block-model .face-left { transform: translate(-50%,-50%) rotateY(-90deg) translateZ(9px); filter: brightness(0.72); }
+  .inv-slot .block-model .face-right, .hotbar-slot .block-model .face-right { transform: translate(-50%,-50%) translateZ(9px); filter: brightness(0.92); }
+
+  /* Enchantment glint — rebuilt from scratch.
+     The previous version stamped a plain rectangle of the glint texture over
+     the icon, which looked wrong (a glowing box, not a shimmer on the item)
+     and used a blend mode that was invisible against this app's dark slots.
+     This version masks the glint overlay to the icon's own silhouette using
+     mask-image (pointed at the same PNG/emoji-render the icon uses), so the
+     shimmer only appears on the item's actual opaque pixels, then animates
+     a diagonal scroll underneath that mask. "screen" blend keeps it visibly
+     bright regardless of background. For the emoji fallback case (no real
+     image to mask against), a soft pulsing glow ring is used instead, since
+     there's no pixel shape to clip to. */
+  /* Enchantment glint — rebuilt to match Minecraft's actual technique.
+     Vanilla renders the enchanted item's quad TWICE more: once with the
+     glint texture scrolling diagonally one way, and a second time with it
+     scrolling the opposite way at a different scale, both composited
+     additively on top of the normal item render (see TextureMat in the
+     game's core shaders). A single static masked overlay (the previous
+     attempt here) doesn't capture that — this uses two independently
+     animated layers instead, matching the real layered-shimmer look.
+     isolation:isolate is required on the host: without it, mix-blend-mode
+     blends against the entire stacking context behind it (other slots,
+     the page background) instead of just the icon directly behind it,
+     which is why the previous version often produced no visible effect
+     depending on what else was on screen. */
+  .glint-host {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    isolation: isolate;
+  }
+
+  .glint-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    -webkit-mask-image: var(--mask-src);
+    mask-image: var(--mask-src);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
+  .glint-overlay .glint-pass {
+    position: absolute;
+    inset: -40%;
+    background-image: var(--glint-src);
+    background-repeat: repeat;
+    image-rendering: pixelated;
+    mix-blend-mode: screen;
+    opacity: 0.32;
+  }
+
+  .glint-overlay .glint-pass-a {
+    background-size: 140% 140%;
+    animation: glint-scroll-a 2.2s linear infinite;
+  }
+
+  .glint-overlay .glint-pass-b {
+    background-size: 90% 90%;
+    opacity: 0.22;
+    animation: glint-scroll-b 3.1s linear infinite reverse;
+  }
+
+  @keyframes glint-scroll-a {
+    from { background-position: 0% 0%; }
+    to   { background-position: 100% 100%; }
+  }
+
+  @keyframes glint-scroll-b {
+    from { background-position: 100% 0%; }
+    to   { background-position: 0% 100%; }
+  }
+
+  /* Fallback glow for emoji icons, which have no pixel mask to clip to */
+  .glint-emoji-glow {
+    position: absolute;
+    inset: -3px;
+    border-radius: 6px;
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(180,120,255,0.32) 0%, rgba(120,60,220,0.14) 55%, transparent 80%);
+    animation: glint-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes glint-pulse {
+    0%, 100% { opacity: 0.5; transform: scale(0.92); }
+    50% { opacity: 0.95; transform: scale(1.05); }
+  }
+
+  .icon-loading {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    background: #2a3f6f;
+    opacity: 0.5;
+    animation: icon-pulse 1s ease-in-out infinite;
+  }
+
+  .inv-slot .icon-loading, .hotbar-slot .icon-loading { width: 22px; height: 22px; }
+
+  @keyframes icon-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+  }
+
+  .mc-item .item-name {
+    font-size: 9px;
+    color: #8090b0;
+    margin-top: 3px;
+    word-break: break-word;
+    line-height: 1.2;
+  }
+
+  /* RIGHT PANEL */
+  .editor {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .editor-top {
+    padding: 16px 20px;
+    background: #1a1a2e;
+    border-bottom: 1px solid #0f3460;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .kit-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .kit-name-wrap label {
+    font-size: 12px;
+    color: #a0a0b0;
+    white-space: nowrap;
+  }
+
+  .pinned-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #1a2744;
+    border: 1px solid #4ecca3;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    color: #4ecca3;
+  }
+
+  .pinned-icon { font-size: 16px; line-height: 1; display: flex; align-items: center; }
+  .pinned-icon img { width: 20px; height: 20px; image-rendering: pixelated; }
+  .pinned-label { white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+
+  .pinned-clear {
+    background: transparent;
+    border: none;
+    color: #e24b4a;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0 2px;
+  }
+
+  #kit-name {
+    background: #0f1b35;
+    border: 1px solid #2a3f6f;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 13px;
+    padding: 6px 10px;
+    width: 200px;
+    outline: none;
+  }
+
+  #kit-name:focus { border-color: #4ecca3; }
+
+  .btn {
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: #4ecca3;
+    color: #0f1b35;
+  }
+
+  .btn-primary:hover { background: #3db891; }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid #e24b4a;
+    color: #e24b4a;
+  }
+
+  .btn-danger:hover { background: #e24b4a22; }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid #2a3f6f;
+    color: #a0a0b0;
+  }
+
+  .btn-secondary:hover { background: #1a2744; color: #e0e0e0; }
+
+  .inventory-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+  }
+
+  .inventory-area::-webkit-scrollbar { width: 6px; }
+  .inventory-area::-webkit-scrollbar-track { background: #0f1b35; }
+  .inventory-area::-webkit-scrollbar-thumb { background: #2a3f6f; border-radius: 3px; }
+
+  .inv-above {
+    max-width: 1000px;
+    display: flex;
+    gap: 20px;
+  }
+
+  .inv-above .inv-section {
+    max-width: 250px;
+  }
+
+  .inv-section {
+    margin-bottom: 20px;
+  }
+
+  .inv-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #4ecca3;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .inv-section h3 span {
+    color: #5060a0;
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+  }
+
+  .slot-grid {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+    max-width: 510px;
+  }
+
+  .inv-slot {
+    width: 54px;
+    height: 54px;
+    background: #1a2744;
+    border: 2px solid #2a3f6f;
+    border-radius: 4px;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    transition: border-color 0.15s;
+  }
+
+  .inv-slot:hover { border-color: #4ecca3; }
+  .inv-slot.filled { border-color: #3a5090; }
+  .inv-slot.filled:hover { border-color: #4ecca3; }
+  .inv-slot.selected { border-color: #4ecca3 !important; box-shadow: 0 0 0 1px #4ecca3; }
+
+  .inv-slot .slot-icon { font-size: 26px; line-height: 1; }
+  .inv-slot .slot-icon img { width: 32px; height: 32px; image-rendering: pixelated; display: block; }
+  .inv-slot .slot-label {
+    font-size: 9px;
+    color: #5060a0;
+    position: absolute;
+    bottom: 2px;
+    left: 0;
+    right: 0;
+    text-align: center;
+  }
+
+  .inv-slot.filled .slot-label { color: #8090c0; }
+
+  .inv-slot .slot-count {
+    position: absolute;
+    bottom: 2px;
+    right: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 1px 1px 0 #000;
+  }
+
+  .inv-slot .slot-clear {
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    font-size: 10px;
+    color: #e24b4a;
+    display: none;
+    line-height: 1;
+  }
+
+  .inv-slot.filled:hover .slot-clear { display: block; }
+
+  /* Hotbar special styling */
+  .hotbar-slots { display: flex; gap: 3px; }
+
+  .hotbar-slot {
+    width: 54px;
+    height: 54px;
+    background: #1a2744;
+    border: 2px solid #3a5090;
+    border-radius: 4px;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    transition: border-color 0.15s;
+  }
+
+  .hotbar-slot:hover { border-color: #4ecca3; }
+  .hotbar-slot.filled { border-color: #4a60a0; }
+  .hotbar-slot.selected { border-color: #4ecca3 !important; }
+  .hotbar-slot .slot-icon { font-size: 26px; }
+  .hotbar-slot .slot-icon img { width: 32px; height: 32px; image-rendering: pixelated; display: block; }
+  .hotbar-slot .slot-label { font-size: 9px; color: #5060a0; position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; }
+  .hotbar-slot.filled .slot-label { color: #8090c0; }
+  .hotbar-slot .slot-count { position: absolute; bottom: 2px; right: 4px; font-size: 10px; font-weight: 700; color: #fff; text-shadow: 1px 1px 0 #000; }
+  .hotbar-slot .slot-clear { position: absolute; top: 1px; right: 2px; font-size: 10px; color: #e24b4a; display: none; }
+  .hotbar-slot.filled:hover .slot-clear { display: block; }
+
+  /* Item tooltip — mimics Minecraft's in-game hover tooltip: dark
+     near-black background, a thin purple-tinted border, item name on
+     top (white normally, light purple/aqua when enchanted, matching
+     vanilla's rarity-tint convention), enchantments listed below in
+     a soft blue-gray, and item id as a faint line at the bottom. */
+  .item-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #100010;
+    border: 2px solid #2d1a4d;
+    border-radius: 3px;
+    padding: 6px 8px;
+    min-width: 120px;
+    max-width: 240px;
+    z-index: 50;
+    pointer-events: none;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.1s;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  .item-tooltip.tt-above {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+
+  .inv-slot.filled:hover .item-tooltip,
+  .hotbar-slot.filled:hover .item-tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .item-tooltip .tt-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+  }
+
+  .item-tooltip.enchanted .tt-name { color: #c9a3ff; }
+
+  .item-tooltip .tt-enchant {
+    font-size: 11px;
+    color: #6dc6c1;
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+
+  .item-tooltip .tt-potion {
+    font-size: 11px;
+    color: #b9a6e0;
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+
+  .item-tooltip .tt-count {
+    font-size: 11px;
+    color: #8090b0;
+    margin-top: 2px;
+  }
+
+  .item-tooltip .tt-id {
+    font-size: 10px;
+    color: #4a4a5a;
+    margin-top: 4px;
+    border-top: 1px solid #2d1a4d;
+    padding-top: 3px;
+    white-space: nowrap;
+  }
+
+  /* Armor slots */
+  .armor-grid { display: flex; gap: 3px; }
+
+  /* Item Config Panel */
+  .item-config {
+    background: #0f1b35;
+    border-top: 1px solid #0f3460;
+    padding: 12px 20px;
+    display: none;
+    gap: 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .item-config.visible { display: flex; }
+
+  .config-title {
+    font-size: 12px;
+    color: #4ecca3;
+    font-weight: 600;
+    width: 100%;
+    margin-bottom: 2px;
+  }
+
+  .config-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .config-field label {
+    font-size: 11px;
+    color: #8090b0;
+  }
+
+  .config-field input, .config-field select {
+    background: #1a2744;
+    border: 1px solid #2a3f6f;
+    border-radius: 5px;
+    color: #e0e0e0;
+    font-size: 12px;
+    padding: 5px 8px;
+    outline: none;
+    width: 120px;
+  }
+
+  .config-field input:focus, .config-field select:focus { border-color: #4ecca3; }
+
+  .config-field input[type="number"] { width: 80px; }
+
+  .enchant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 180px;
+    overflow-y: auto;
+    max-width: 260px;
+  }
+
+  .enchant-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .enchant-row select { width: 140px; font-size: 11px; }
+  .enchant-row input { width: 50px; font-size: 11px; }
+  .enchant-row button {
+    background: transparent;
+    border: 1px solid #e24b4a;
+    color: #e24b4a;
+    border-radius: 3px;
+    font-size: 11px;
+    padding: 2px 5px;
+    cursor: pointer;
+  }
+
+  .add-enchant-btn {
+    font-size: 11px;
+    background: transparent;
+    border: 1px dashed #3a5090;
+    color: #8090b0;
+    border-radius: 4px;
+    padding: 3px 8px;
+    cursor: pointer;
+    margin-top: 2px;
+    width: fit-content;
+  }
+
+  .add-enchant-btn:hover { border-color: #4ecca3; color: #4ecca3; }
+
+  /* Output panel */
+  .output-panel {
+    background: #0a0f1e;
+    border-top: 2px solid #0f3460;
+    padding: 0;
+    display: none;
+    flex-direction: column;
+  }
+
+  .output-panel.visible { display: flex; }
+
+  .output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: #0f1b35;
+    border-bottom: 1px solid #1a2744;
+  }
+
+  .output-header h3 { font-size: 13px; color: #4ecca3; font-weight: 600; }
+
+  #output-code {
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+    color: #a8d8a8;
+    padding: 12px 16px;
+    max-height: 200px;
+    overflow-y: auto;
+    line-height: 1.6;
+    white-space: pre;
+  }
+
+  #output-code::-webkit-scrollbar { width: 6px; }
+  #output-code::-webkit-scrollbar-track { background: #0a0f1e; }
+  #output-code::-webkit-scrollbar-thumb { background: #1a2744; border-radius: 3px; }
+
+  .output-code-comment { color: #5060a0; }
+  .output-code-cmd { color: #a8d8a8; }
+  .output-code-item { color: #f0a070; }
+  .output-code-slot { color: #70b8f0; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #4ecca3;
+    color: #0f1b35;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚔ Kit Generator</div>
+  <div class="subtitle">Minecraft Datapack · /item replace command builder</div>
+  <div class="texture-path-wrap">
+    <label for="texture-path">Assets folder:</label>
+    <input type="text" id="texture-path" value="assets/" placeholder="folder containing textures/ and models/">
+    <span id="texture-status" class="texture-status">using emoji fallback</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- LEFT: Item browser -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>Items</h2>
+      <input type="text" id="item-search" placeholder="Search items…">
+      <div class="filter-tabs" id="filter-tabs">
+        <div class="filter-tab active" data-cat="all">All</div>
+        <div class="filter-tab" data-cat="armor">Armor</div>
+        <div class="filter-tab" data-cat="weapons">Weapons</div>
+        <div class="filter-tab" data-cat="tools">Tools</div>
+        <div class="filter-tab" data-cat="food">Food</div>
+        <div class="filter-tab" data-cat="blocks">Blocks</div>
+        <div class="filter-tab" data-cat="misc">Misc</div>
+      </div>
+    </div>
+    <div class="item-list" id="item-list"></div>
+  </div>
+
+  <!-- RIGHT: Inventory editor -->
+  <div class="editor">
+    <div class="editor-top">
+      <div class="kit-name-wrap">
+        <label>Function name:</label>
+        <input type="text" id="kit-name" value="give_kit" placeholder="give_kit">
+      </div>
+      <div class="pinned-indicator" id="pinned-indicator" style="display:none">
+        <span class="pinned-icon" id="pinned-icon"></span>
+        <span class="pinned-label" id="pinned-label"></span>
+        <button class="pinned-clear" onclick="clearPinnedItem()" title="Unpin">✕</button>
+      </div>
+      <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+      <button class="btn btn-primary" onclick="generateFunction()">▶ Generate .mcfunction</button>
+    </div>
+
+    <div class="inventory-area">
+      <div class="inv-above">
+        <!-- Armor Slots -->
+        <div class="inv-section">
+         <h3>Armor <span>click a slot, then click an item →</span></h3>
+         <div class="armor-grid" id="armor-slots"></div>
+        </div>
+
+        <!-- Offhand -->
+        <div class="inv-section">
+          <h3>Offhand</h3>
+         <div class="slot-grid" id="offhand-slot"></div>
+        </div>
+      </div>
+
+      <!-- Main inventory -->
+      <div class="inv-section">
+        <h3>Inventory <span>slots 0–26</span></h3>
+        <div class="slot-grid" id="inv-slots"></div>
+      </div>
+
+      <!-- Hotbar -->
+      <div class="inv-section">
+        <h3>Hotbar <span>slots 0–8</span></h3>
+        <div class="hotbar-slots" id="hotbar-slots"></div>
+      </div>
+
+    </div>
+
+    <!-- Item config bar -->
+    <div class="item-config" id="item-config">
+      <div class="config-title" id="config-title">Configure item</div>
+      <div class="config-field">
+        <label>Count</label>
+        <input type="number" id="cfg-count" value="1" min="1" max="64" onchange="updateSlotConfig()">
+      </div>
+      <div class="config-field">
+        <label>Custom Name</label>
+        <input type="text" id="cfg-name" placeholder="Leave empty for default" oninput="updateSlotConfig()">
+      </div>
+      <div class="config-field">
+        <label>Enchantments</label>
+        <div class="enchant-list" id="enchant-list"></div>
+        <button class="add-enchant-btn" onclick="addEnchantRow()">+ Add enchantment</button>
+      </div>
+      <div class="config-field">
+        <label>Potion Type</label>
+        <select id="cfg-potion" onchange="updatePotionConfig()" style="width:160px"></select>
+      </div>
+      <div class="config-field" style="align-self:flex-end">
+        <button class="btn btn-secondary" onclick="pinSelectedItem()" style="font-size:12px; padding:5px 10px;">📌 Pin this item</button>
+        <button class="btn btn-danger" onclick="removeSelectedSlot()" style="font-size:12px; padding:5px 10px;">Remove Item</button>
+      </div>
+    </div>
+
+    <!-- Output -->
+    <div class="output-panel" id="output-panel">
+      <div class="output-header">
+        <h3>📄 Generated Function</h3>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" style="font-size:12px;padding:5px 10px" onclick="copyCode()">Copy</button>
+          <button class="btn btn-primary" style="font-size:12px;padding:5px 10px" onclick="downloadFunction()">Download .mcfunction</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:5px 10px" onclick="closeOutput()">✕</button>
+        </div>
+      </div>
+      <div id="output-code"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ITEMS = [
+  // Armor
+  {id:"leather_helmet",name:"Leather Helmet",icon:"🪖",cat:"armor"},
+  {id:"leather_chestplate",name:"Leather Chestplate",icon:"🦺",cat:"armor"},
+  {id:"leather_leggings",name:"Leather Leggings",icon:"👖",cat:"armor"},
+  {id:"leather_boots",name:"Leather Boots",icon:"👟",cat:"armor"},
+  {id:"chainmail_helmet",name:"Chainmail Helmet",icon:"⛓",cat:"armor"},
+  {id:"chainmail_chestplate",name:"Chainmail Chestplate",icon:"⛓",cat:"armor"},
+  {id:"chainmail_leggings",name:"Chainmail Leggings",icon:"⛓",cat:"armor"},
+  {id:"chainmail_boots",name:"Chainmail Boots",icon:"⛓",cat:"armor"},
+  {id:"iron_helmet",name:"Iron Helmet",icon:"⚙",cat:"armor"},
+  {id:"iron_chestplate",name:"Iron Chestplate",icon:"🛡",cat:"armor"},
+  {id:"iron_leggings",name:"Iron Leggings",icon:"🛡",cat:"armor"},
+  {id:"iron_boots",name:"Iron Boots",icon:"🥾",cat:"armor"},
+  {id:"golden_helmet",name:"Golden Helmet",icon:"👑",cat:"armor"},
+  {id:"golden_chestplate",name:"Golden Chestplate",icon:"✨",cat:"armor"},
+  {id:"golden_leggings",name:"Golden Leggings",icon:"✨",cat:"armor"},
+  {id:"golden_boots",name:"Golden Boots",icon:"✨",cat:"armor"},
+  {id:"diamond_helmet",name:"Diamond Helmet",icon:"💎",cat:"armor"},
+  {id:"diamond_chestplate",name:"Diamond Chestplate",icon:"💎",cat:"armor"},
+  {id:"diamond_leggings",name:"Diamond Leggings",icon:"💎",cat:"armor"},
+  {id:"diamond_boots",name:"Diamond Boots",icon:"💎",cat:"armor"},
+  {id:"netherite_helmet",name:"Netherite Helmet",icon:"🔥",cat:"armor"},
+  {id:"netherite_chestplate",name:"Netherite Chestplate",icon:"🔥",cat:"armor"},
+  {id:"netherite_leggings",name:"Netherite Leggings",icon:"🔥",cat:"armor"},
+  {id:"netherite_boots",name:"Netherite Boots",icon:"🔥",cat:"armor"},
+  {id:"turtle_helmet",name:"Turtle Helmet",icon:"🐢",cat:"armor"},
+  {id:"elytra",name:"Elytra",icon:"🦋",cat:"armor"},
+  // Weapons
+  {id:"wooden_sword",name:"Wooden Sword",icon:"🗡",cat:"weapons"},
+  {id:"stone_sword",name:"Stone Sword",icon:"🗡",cat:"weapons"},
+  {id:"iron_sword",name:"Iron Sword",icon:"⚔",cat:"weapons"},
+  {id:"golden_sword",name:"Golden Sword",icon:"⚔",cat:"weapons"},
+  {id:"diamond_sword",name:"Diamond Sword",icon:"💠",cat:"weapons"},
+  {id:"netherite_sword",name:"Netherite Sword",icon:"🌋",cat:"weapons"},
+  {id:"bow",name:"Bow",icon:"🏹",cat:"weapons"},
+  {id:"crossbow",name:"Crossbow",icon:"🏹",cat:"weapons"},
+  {id:"trident",name:"Trident",icon:"🔱",cat:"weapons"},
+  {id:"arrow",name:"Arrow",icon:"➵",cat:"weapons"},
+  {id:"tipped_arrow",name:"Tipped Arrow",icon:"➵",cat:"weapons"},
+  {id:"spectral_arrow",name:"Spectral Arrow",icon:"✨",cat:"weapons"},
+  {id:"shield",name:"Shield",icon:"🛡",cat:"weapons"},
+  {id:"mace",name:"Mace",icon:"🔨",cat:"weapons"},
+  {id:"wooden_spear",name:"Wooden Spear",icon:"🪛",cat:"weapons"},
+  {id:"stone_spear",name:"Stone Spear",icon:"🪛",cat:"weapons"},
+  {id:"copper_spear",name:"Copper Spear",icon:"🪛",cat:"weapons"},
+  {id:"iron_spear",name:"Iron Spear",icon:"🪛",cat:"weapons"},
+  {id:"golden_spear",name:"Golden Spear",icon:"🪛",cat:"weapons"},
+  {id:"diamond_spear",name:"Diamond Spear",icon:"🪛",cat:"weapons"},
+  {id:"netherite_spear",name:"Netherite Spear",icon:"🪛",cat:"weapons"},
+  // Tools
+  {id:"wooden_pickaxe",name:"Wooden Pickaxe",icon:"⛏",cat:"tools"},
+  {id:"stone_pickaxe",name:"Stone Pickaxe",icon:"⛏",cat:"tools"},
+  {id:"iron_pickaxe",name:"Iron Pickaxe",icon:"⛏",cat:"tools"},
+  {id:"golden_pickaxe",name:"Golden Pickaxe",icon:"⛏",cat:"tools"},
+  {id:"diamond_pickaxe",name:"Diamond Pickaxe",icon:"💎",cat:"tools"},
+  {id:"netherite_pickaxe",name:"Netherite Pickaxe",icon:"🔥",cat:"tools"},
+  {id:"wooden_axe",name:"Wooden Axe",icon:"🪓",cat:"tools"},
+  {id:"stone_axe",name:"Stone Axe",icon:"🪓",cat:"tools"},
+  {id:"iron_axe",name:"Iron Axe",icon:"🪓",cat:"tools"},
+  {id:"golden_axe",name:"Golden Axe",icon:"🪓",cat:"tools"},
+  {id:"diamond_axe",name:"Diamond Axe",icon:"🪓",cat:"tools"},
+  {id:"netherite_axe",name:"Netherite Axe",icon:"🔥",cat:"tools"},
+  {id:"wooden_shovel",name:"Wooden Shovel",icon:"🔧",cat:"tools"},
+  {id:"iron_shovel",name:"Iron Shovel",icon:"🔧",cat:"tools"},
+  {id:"diamond_shovel",name:"Diamond Shovel",icon:"💎",cat:"tools"},
+  {id:"wooden_hoe",name:"Wooden Hoe",icon:"🌾",cat:"tools"},
+  {id:"iron_hoe",name:"Iron Hoe",icon:"🌾",cat:"tools"},
+  {id:"diamond_hoe",name:"Diamond Hoe",icon:"💎",cat:"tools"},
+  {id:"flint_and_steel",name:"Flint & Steel",icon:"🔥",cat:"tools"},
+  {id:"shears",name:"Shears",icon:"✂",cat:"tools"},
+  {id:"fishing_rod",name:"Fishing Rod",icon:"🎣",cat:"tools"},
+  {id:"compass",name:"Compass",icon:"🧭",cat:"tools"},
+  {id:"clock",name:"Clock",icon:"🕐",cat:"tools"},
+  {id:"spyglass",name:"Spyglass",icon:"🔭",cat:"tools"},
+  {id:"brush",name:"Brush",icon:"🖌",cat:"tools"},
+  // Food
+  {id:"apple",name:"Apple",icon:"🍎",cat:"food"},
+  {id:"golden_apple",name:"Golden Apple",icon:"🍏",cat:"food"},
+  {id:"enchanted_golden_apple",name:"Enchanted G. Apple",icon:"✨",cat:"food"},
+  {id:"bread",name:"Bread",icon:"🍞",cat:"food"},
+  {id:"cooked_beef",name:"Steak",icon:"🥩",cat:"food"},
+  {id:"cooked_chicken",name:"Cooked Chicken",icon:"🍗",cat:"food"},
+  {id:"cooked_porkchop",name:"Cooked Porkchop",icon:"🍖",cat:"food"},
+  {id:"cooked_salmon",name:"Cooked Salmon",icon:"🐟",cat:"food"},
+  {id:"cooked_mutton",name:"Cooked Mutton",icon:"🍖",cat:"food"},
+  {id:"cooked_cod",name:"Cooked Cod",icon:"🐟",cat:"food"},
+  {id:"cooked_rabbit",name:"Cooked Rabbit",icon:"🐇",cat:"food"},
+  {id:"mushroom_stew",name:"Mushroom Stew",icon:"🍲",cat:"food"},
+  {id:"rabbit_stew",name:"Rabbit Stew",icon:"🍲",cat:"food"},
+  {id:"beetroot_soup",name:"Beetroot Soup",icon:"🍲",cat:"food"},
+  {id:"milk_bucket",name:"Milk Bucket",icon:"🥛",cat:"food"},
+  {id:"honey_bottle",name:"Honey Bottle",icon:"🍯",cat:"food"},
+  {id:"melon_slice",name:"Melon Slice",icon:"🍈",cat:"food"},
+  {id:"pumpkin_pie",name:"Pumpkin Pie",icon:"🥧",cat:"food"},
+  {id:"cookie",name:"Cookie",icon:"🍪",cat:"food"},
+  {id:"cake",name:"Cake",icon:"🎂",cat:"food"},
+  // Blocks
+  {id:"torch",name:"Torch",icon:"🔦",cat:"blocks"},
+  {id:"ladder",name:"Ladder",icon:"🪜",cat:"blocks"},
+  {id:"chest",name:"Chest",icon:"📦",cat:"blocks"},
+  {id:"crafting_table",name:"Crafting Table",icon:"🔨",cat:"blocks"},
+  {id:"furnace",name:"Furnace",icon:"🔥",cat:"blocks"},
+  {id:"anvil",name:"Anvil",icon:"⚒",cat:"blocks"},
+  {id:"enchanting_table",name:"Enchanting Table",icon:"📖",cat:"blocks"},
+  {id:"cobblestone",name:"Cobblestone",icon:"🪨",cat:"blocks"},
+  {id:"stone",name:"Stone",icon:"🪨",cat:"blocks"},
+  {id:"oak_log",name:"Oak Log",icon:"🪵",cat:"blocks"},
+  {id:"oak_planks",name:"Oak Planks",icon:"🪵",cat:"blocks"},
+  {id:"dirt",name:"Dirt",icon:"🟫",cat:"blocks"},
+  {id:"sand",name:"Sand",icon:"🟡",cat:"blocks"},
+  {id:"gravel",name:"Gravel",icon:"⚫",cat:"blocks"},
+  {id:"tnt",name:"TNT",icon:"💣",cat:"blocks"},
+  {id:"obsidian",name:"Obsidian",icon:"⬛",cat:"blocks"},
+  // Misc
+  {id:"ender_pearl",name:"Ender Pearl",icon:"🔮",cat:"misc"},
+  {id:"snowball",name:"Snowball",icon:"❄",cat:"misc"},
+  {id:"egg",name:"Egg",icon:"🥚",cat:"misc"},
+  {id:"firework_rocket",name:"Firework Rocket",icon:"🎆",cat:"misc"},
+  {id:"potion",name:"Potion",icon:"🧪",cat:"misc"},
+  {id:"splash_potion",name:"Splash Potion",icon:"💦",cat:"misc"},
+  {id:"lingering_potion",name:"Lingering Potion",icon:"🌫",cat:"misc"},
+  {id:"experience_bottle",name:"XP Bottle",icon:"💚",cat:"misc"},
+  {id:"totem_of_undying",name:"Totem of Undying",icon:"🗿",cat:"misc"},
+  {id:"name_tag",name:"Name Tag",icon:"🏷",cat:"misc"},
+  {id:"lead",name:"Lead",icon:"🪢",cat:"misc"},
+  {id:"book",name:"Book",icon:"📕",cat:"misc"},
+  {id:"written_book",name:"Written Book",icon:"📖",cat:"misc"},
+  {id:"map",name:"Map",icon:"🗺",cat:"misc"},
+  {id:"filled_map",name:"Filled Map",icon:"🗺",cat:"misc"},
+  {id:"iron_ingot",name:"Iron Ingot",icon:"🔩",cat:"misc"},
+  {id:"gold_ingot",name:"Gold Ingot",icon:"🥇",cat:"misc"},
+  {id:"diamond",name:"Diamond",icon:"💎",cat:"misc"},
+  {id:"emerald",name:"Emerald",icon:"💚",cat:"misc"},
+  {id:"netherite_ingot",name:"Netherite Ingot",icon:"⬛",cat:"misc"},
+  {id:"stick",name:"Stick",icon:"🪵",cat:"misc"},
+  {id:"string",name:"String",icon:"🧵",cat:"misc"},
+  {id:"feather",name:"Feather",icon:"🪶",cat:"misc"},
+  {id:"flint",name:"Flint",icon:"⬛",cat:"misc"},
+  {id:"coal",name:"Coal",icon:"⬛",cat:"misc"},
+  {id:"redstone",name:"Redstone",icon:"🔴",cat:"misc"},
+  {id:"glowstone_dust",name:"Glowstone Dust",icon:"💛",cat:"misc"},
+  {id:"blaze_rod",name:"Blaze Rod",icon:"🔥",cat:"misc"},
+  {id:"blaze_powder",name:"Blaze Powder",icon:"🔥",cat:"misc"},
+  {id:"ghast_tear",name:"Ghast Tear",icon:"💧",cat:"misc"},
+  {id:"gunpowder",name:"Gunpowder",icon:"💨",cat:"misc"},
+  {id:"wind_charge",name:"Wind Charge",icon:"💨",cat:"misc"},
+  {id:"breeze_rod",name:"Breeze Rod",icon:"🩼",cat:"misc"},
+];
+
+// Re-links a possibly-stale deserialized item (e.g. from localStorage saved
+// in an earlier session) to the current canonical ITEMS entry by id, so
+// icon/name/category always reflect the live ITEMS array rather than a
+// frozen snapshot from whenever the kit was saved.
+function findItemById(id) {
+  return ITEMS.find(i => i.id === id) || null;
+}
+
+const ENCHANTMENTS = [
+  "sharpness","smite","bane_of_arthropods","knockback","fire_aspect","looting","sweeping_edge",
+  "efficiency","silk_touch","unbreaking","fortune","power","punch","flame","infinity",
+  "luck_of_the_sea","lure","loyalty","impaling","riptide","channeling","multishot","quick_charge","piercing",
+  "protection","fire_protection","blast_protection","projectile_protection","thorns","respiration","aqua_affinity","feather_falling","depth_strider","frost_walker","soul_speed",
+  "mending","swift_sneak","binding_curse","vanishing_curse","density","breach","wind_burst","lunge"
+];
+
+const POTIONS = [
+  "awkward","fire_resistance","harming","healing","infested","invisibilty","leaping","long_fire_resistance","long_invisibility","long_leaping","long_night_vision",
+  "long_poison","long_regeneration","long_slow_falling","long_slowness","long_strength","long_swiftness","long_turtle_master","long_water_breathing","long_weakness",
+  "luck","mundane","night_vision","oozing","poison","regeneration","slow_falling","slowness","strength","strong_harming","strong_healing","strong_leaping","strong_poison",
+  "strong_regeneration","strong_slowness","strong_strength","strong_swiftness","strong_turtle_master","swiftness","thick","turtle_master","water","water_breathing",
+  "weakness","weaving","wind_charged"
+]
+
+// Slot layout
+// Slot key: "armor_head" "armor_chest" "armor_legs" "armor_feet" "offhand" "inv_0" .. "inv_26" "hotbar_0" .. "hotbar_8"
+const state = {
+  slots: {},       // key -> {item, count, name, enchants[]}
+  selected: null,  // currently selected slot key
+  activeFilter: "all",
+  searchQuery: "",
+  texturePath: "assets/",
+  textureOk: false,
+  pinnedItem: null // full slot config {item, count, name, enchants, potion} saved via "Pin this item"
+};
+
+// --- Model JSON resolution ---------------------------------------------
+// Instead of hardcoding which texture goes on which cube face, this reads
+// real Minecraft model JSON files supplied in a "models/" folder, the same
+// files found in assets/minecraft/models/item/ and assets/minecraft/models/block/
+// inside the game jar. It resolves the parent chain and texture variables
+// exactly like the game does, then reads elements[0].faces to find out
+// which texture applies to the up/north/south/east/west/down face.
+//
+// Expected layout (mirrors the vanilla jar):
+//   models/item/<id>.json     (most items, blocks included — these usually
+//                               just set "parent":"minecraft:block/<id>" or
+//                               "minecraft:item/generated" with a textures map)
+//   models/block/<id>.json    (the actual block geometry + face mapping)
+//
+// Built-in vanilla parents (cube_all, cube_column, cube_bottom_top, etc.)
+// are recognized by name so a chain like block/oak_log -> block/cube_column
+// resolves correctly without needing those generic parent files supplied,
+// though supplying them also works since they're parsed the same way.
+
+const BUILTIN_PARENTS = {
+  "block/cube_all": {
+    elements: [{ faces: { up:{texture:"#all"}, down:{texture:"#all"}, north:{texture:"#all"}, south:{texture:"#all"}, east:{texture:"#all"}, west:{texture:"#all"} } }]
+  },
+  "block/cube_column": {
+    elements: [{ faces: { up:{texture:"#top"}, down:{texture:"#bottom"}, north:{texture:"#side"}, south:{texture:"#side"}, east:{texture:"#side"}, west:{texture:"#side"} } }]
+  },
+  "block/cube_bottom_top": {
+    elements: [{ faces: { up:{texture:"#top"}, down:{texture:"#bottom"}, north:{texture:"#side"}, south:{texture:"#side"}, east:{texture:"#side"}, west:{texture:"#side"} } }]
+  },
+  "block/cube": {
+    elements: [{ faces: { up:{texture:"#up"}, down:{texture:"#down"}, north:{texture:"#north"}, south:{texture:"#south"}, east:{texture:"#east"}, west:{texture:"#west"} } }]
+  },
+  "block/orientable": {
+    elements: [{ faces: { up:{texture:"#top"}, down:{texture:"#top"}, north:{texture:"#front"}, south:{texture:"#side"}, east:{texture:"#side"}, west:{texture:"#side"} } }]
+  },
+  "item/generated": null,   // flat 2D sprite — no cube, render as a flat icon
+  "item/handheld": null,    // flat 2D sprite — tools/weapons
+  "builtin/generated": null,
+};
+
+const modelCache = new Map();   // path -> parsed JSON or null (404/flat)
+const resolvedCache = new Map(); // item id -> resolved {up,down,north,south,east,west} texture paths, or "flat", or null (not yet tried)
+
+// Browsers (Chrome especially) block fetch() of local files when the page
+// itself was opened via file://, even though <img src="..."> loading local
+// files works fine. This means block models silently fail to resolve while
+// flat item sprites keep working — exactly the "items fine, blocks broken"
+// symptom. There's no reliable way around this from inside the page; the
+// real fix is serving the folder over local HTTP (e.g. `python -m http.server`
+// in the folder, then opening http://localhost:8000/ instead of double-
+// clicking the HTML file). We detect this case so the status message tells
+// the person what's actually wrong instead of just saying "missing textures".
+const isFileProtocol = location.protocol === "file:";
+let fetchBlockedWarningShown = false;
+
+async function fetchJSON(url) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    if (isFileProtocol && !fetchBlockedWarningShown) {
+      fetchBlockedWarningShown = true;
+      const status = document.getElementById("texture-status");
+      if (status) {
+        status.textContent = "block models blocked — open via local server, not double-click (see chat)";
+        status.className = "texture-status error";
+      }
+    }
+    return null;
+  }
+}
+
+async function loadModel(refPath, base) {
+  // refPath like "minecraft:block/oak_log" or "block/cube_column" or "item/diamond_sword"
+  const clean = refPath.replace(/^minecraft:/, "");
+  if (BUILTIN_PARENTS[clean] !== undefined) return BUILTIN_PARENTS[clean];
+  if (modelCache.has(clean)) return modelCache.get(clean);
+  const url = `${base}models/${clean}.json`;
+  const json = await fetchJSON(url);
+  modelCache.set(clean, json);
+  return json;
+}
+
+// Walks the parent chain for a model reference, merging "textures" maps
+// (child overrides parent) and returning the first chain entry that has
+// "elements" defined (face geometry lives on the most specific model that
+// declares it — usually the block model at the bottom of the chain).
+async function resolveModelChain(refPath, base, depth) {
+  if (depth > 6) return null; // guard against accidental cycles
+  const model = await loadModel(refPath, base);
+  if (model === null) return { flat: true };
+  if (model === undefined) return null;
+  let textures = model.textures || {};
+  let elements = model.elements || null;
+  if (model.parent) {
+    const parentResult = await resolveModelChain(model.parent, base, depth + 1);
+    if (parentResult && parentResult.flat) return { flat: true };
+    if (parentResult) {
+      textures = { ...parentResult.textures, ...textures };
+      if (!elements) elements = parentResult.elements;
+    }
+  }
+  return { textures, elements };
+}
+
+// Follows a "#variable" reference through the textures map until it hits
+// a literal texture path (one not starting with #), e.g. #top -> #all -> "block/oak_planks"
+function resolveTextureVar(textures, ref, depth) {
+  if (depth > 6 || !ref) return null;
+  if (!ref.startsWith("#")) return ref;
+  const next = textures[ref.slice(1)];
+  return resolveTextureVar(textures, next, depth + 1);
+}
+
+// Resolves an item id to its visible cube faces (up/left/right, mapped from
+// Minecraft's up/west-or-north/east-or-south) by reading models/item/<id>.json
+// first, then models/block/<id>.json as a fallback — matching how the game
+// itself looks up item models.
+async function resolveItemVisual(item, base) {
+  if (resolvedCache.has(item.id)) return resolvedCache.get(item.id);
+  let result = await resolveModelChain(`item/${item.id}`, base, 0);
+  if (!result) {
+    result = await resolveModelChain(`block/${item.id}`, base, 0);
+  }
+  if (!result || result.flat || !result.elements || !result.elements.length) {
+    resolvedCache.set(item.id, "flat");
+    return "flat";
+  }
+  const faces = result.elements[0].faces || {};
+  const tex = result.textures || {};
+  const strip = v => v ? v.replace(/^minecraft:/, "") : v;
+  const up = strip(resolveTextureVar(tex, faces.up && faces.up.texture, 0));
+  const west = strip(resolveTextureVar(tex, faces.west && faces.west.texture, 0));
+  const north = strip(resolveTextureVar(tex, faces.north && faces.north.texture, 0));
+  const east = strip(resolveTextureVar(tex, faces.east && faces.east.texture, 0));
+  const south = strip(resolveTextureVar(tex, faces.south && faces.south.texture, 0));
+  // Minecraft's isometric GUI render shows the top face, plus west (as the
+  // left-darkened face) and south (as the right-neutral face) of the cube.
+  const left = west || north;
+  const right = south || east;
+  if (!up && !left && !right) {
+    resolvedCache.set(item.id, "flat");
+    return "flat";
+  }
+  const visual = { up: up || left || right, left: left || up, right: right || up };
+  resolvedCache.set(item.id, visual);
+  return visual;
+}
+
+// Builds icon markup for an item: flat sprite, 3D block model (resolved
+// from real model JSON), or emoji fallback — optionally wrapped with an
+// animated enchantment glint layer.
+function iconHTML(item, isEnchanted) {
+  const path = state.texturePath.trim();
+  if (!path) return wrapGlintHost(item.icon, isEnchanted, null);
+  const placeholderId = `icon-pending-${item.id}-${Math.random().toString(36).slice(2,8)}`;
+  resolveAndRenderIcon(item, path, placeholderId, isEnchanted);
+  return wrapGlintHost(`<span id="${placeholderId}" class="icon-loading"></span>`, false, null);
+}
+
+// Wraps icon markup in a positioning host. Glint itself is attached later
+// (once we know whether the icon is a real image we can mask against, or
+// just emoji text) rather than wrapped here, since wrapping it before the
+// real icon resolves means there's nothing yet to clip the shimmer to.
+function wrapGlintHost(inner, isEnchanted, glintInfo) {
+  if (!isEnchanted) return `<span class="glint-host">${inner}</span>`;
+  return `<span class="glint-host">${inner}${buildGlintLayer(glintInfo)}</span>`;
+}
+
+// Builds the actual glint overlay markup.
+//   glintInfo = { glintSrc, maskSrc } -> masked shimmer clipped to the icon's
+//     own image silhouette (used for flat item sprites we successfully loaded)
+//   glintInfo = null -> no maskable image available (emoji fallback, or a
+//     3D block cube where masking to a multi-face isometric shape isn't
+//     meaningful) -> falls back to a soft pulsing glow instead
+function buildGlintLayer(glintInfo) {
+  if (glintInfo && glintInfo.maskSrc) {
+    const maskUrl = `url('${glintInfo.maskSrc}')`;
+    const glintUrl = `url('${glintInfo.glintSrc}')`;
+    return `<span class="glint-overlay" style="--mask-src:${maskUrl}">` +
+      `<span class="glint-pass glint-pass-a" style="--glint-src:${glintUrl}"></span>` +
+      `<span class="glint-pass glint-pass-b" style="--glint-src:${glintUrl}"></span>` +
+      `</span>`;
+  }
+  return `<span class="glint-emoji-glow"></span>`;
+}
+
+async function resolveAndRenderIcon(item, path, placeholderId, isEnchanted) {
+  const base = path.endsWith("/") ? path : path + "/";
+  const glintSrc = `${base}textures/misc/enchanted_glint_item.png`;
+  const visual = await resolveItemVisual(item, base);
+  const el = document.getElementById(placeholderId);
+  if (!el) return; // slot was re-rendered before this resolved
+  const host = el.closest(".glint-host");
+  const fallback = item.icon.replace(/'/g, "&#39;");
+
+  if (visual === "flat") {
+    const src = `${base}textures/item/${item.id}.png`;
+    const img = document.createElement("img");
+    img.alt = item.name;
+    img.onerror = () => {
+      img.replaceWith(document.createTextNode(item.icon));
+      markTextureMissing();
+      if (isEnchanted && host) host.insertAdjacentHTML("beforeend", buildGlintLayer(null));
+    };
+    img.onload = () => {
+      if (isEnchanted && host) host.insertAdjacentHTML("beforeend", buildGlintLayer({ glintSrc, maskSrc: src }));
+    };
+    img.src = src;
+    el.replaceWith(img);
+    return;
+  }
+
+  // Block cube — render the three faces, and if enchanted, use the glow
+  // fallback since masking a shimmer to an isometric multi-face cube shape
+  // isn't something a single mask-image can express cleanly.
+  const tUrl = `${base}textures/${visual.up}.png`;
+  const lUrl = `${base}textures/${visual.left}.png`;
+  const rUrl = `${base}textures/${visual.right}.png`;
+  const cubeId = `cube-${item.id}-${Math.random().toString(36).slice(2,8)}`;
+  const faceFailed = `window.__cubeFaceFail && window.__cubeFaceFail('${cubeId}')`;
+  el.outerHTML = `<span class="block-model" id="${cubeId}" data-fallback="${fallback}" data-fail-count="0"><span class="cube">` +
+    `<span class="face face-top"><img src="${tUrl}" onerror="this.style.visibility='hidden'; ${faceFailed}"></span>` +
+    `<span class="face face-left"><img src="${lUrl}" onerror="this.style.visibility='hidden'; ${faceFailed}"></span>` +
+    `<span class="face face-right"><img src="${rUrl}" onerror="this.style.visibility='hidden'; ${faceFailed}"></span>` +
+    `</span></span>`;
+  if (isEnchanted && host) host.insertAdjacentHTML("beforeend", buildGlintLayer(null));
+  markTextureMissing(false); // tentative — only escalates to a visible warning if a face actually 404s
+}
+
+// Tracks per-cube face failures. If all 3 faces of a given cube fail to
+// load, the cube is visually empty/broken, so we replace it with the
+// item's emoji instead — matching how flat-sprite fallback already works.
+window.__cubeFaceFail = function(cubeId) {
+  const cube = document.getElementById(cubeId);
+  if (!cube) return;
+  const count = parseInt(cube.dataset.failCount || "0", 10) + 1;
+  cube.dataset.failCount = String(count);
+  if (count >= 3) {
+    cube.outerHTML = cube.dataset.fallback;
+  }
+  markTextureMissing();
+}
+
+function markTextureMissing(actuallyMissing) {
+  if (actuallyMissing === false) return; // tentative call, nothing failed yet
+  const status = document.getElementById("texture-status");
+  if (status && state.textureOk !== false) {
+    state.textureOk = false;
+    status.textContent = "some textures missing — check filenames/path";
+    status.className = "texture-status error";
+  }
+}
+
+const ARMOR_SLOTS = [
+  {key:"armor_head", label:"Head", mcSlot:"armor.head"},
+  {key:"armor_chest", label:"Chest", mcSlot:"armor.chest"},
+  {key:"armor_legs", label:"Legs", mcSlot:"armor.legs"},
+  {key:"armor_feet", label:"Feet", mcSlot:"armor.feet"},
+];
+
+function init() {
+  buildArmorSlots();
+  buildOffhand();
+  buildInvSlots();
+  buildHotbarSlots();
+  renderItemList();
+  loadKitFromStorage();
+  Object.keys(state.slots).forEach(refreshSlotUI);
+  renderPinnedIndicator();
+  document.getElementById("kit-name").addEventListener("change", saveKitToStorage);
+  document.getElementById("item-search").addEventListener("input", e => {
+    state.searchQuery = e.target.value.toLowerCase();
+    renderItemList();
+  });
+  document.querySelectorAll(".filter-tab").forEach(t => {
+    t.addEventListener("click", () => {
+      document.querySelectorAll(".filter-tab").forEach(x => x.classList.remove("active"));
+      t.classList.add("active");
+      state.activeFilter = t.dataset.cat;
+      renderItemList();
+    });
+  });
+  const texInput = document.getElementById("texture-path");
+  texInput.addEventListener("change", () => {
+    state.texturePath = texInput.value;
+    state.textureOk = true;
+    modelCache.clear();
+    resolvedCache.clear();
+    const status = document.getElementById("texture-status");
+    status.textContent = state.texturePath.trim() ? "loading…" : "using emoji fallback";
+    status.className = "texture-status";
+    renderItemList();
+    Object.keys(state.slots).forEach(refreshSlotUI);
+  });
+  state.texturePath = texInput.value;
+}
+
+function buildArmorSlots() {
+  const container = document.getElementById("armor-slots");
+  ARMOR_SLOTS.forEach(s => {
+    container.appendChild(makeSlotEl(s.key, s.label, false));
+  });
+}
+
+function buildOffhand() {
+  const container = document.getElementById("offhand-slot");
+  container.appendChild(makeSlotEl("offhand", "Off", false));
+}
+
+function buildInvSlots() {
+  const container = document.getElementById("inv-slots");
+  for (let i = 0; i <= 26; i++) {
+    container.appendChild(makeSlotEl(`inv_${i}`, `${i}`, false));
+  }
+}
+
+function buildHotbarSlots() {
+  const container = document.getElementById("hotbar-slots");
+  for (let i = 0; i <= 8; i++) {
+    container.appendChild(makeSlotEl(`hotbar_${i}`, `${i}`, true));
+  }
+}
+
+function makeSlotEl(key, label, isHotbar) {
+  const div = document.createElement("div");
+  div.className = isHotbar ? "hotbar-slot" : "inv-slot";
+  div.id = `slot-${key}`;
+  div.innerHTML = `
+    <span class="slot-icon" id="icon-${key}"></span>
+    <span class="slot-label" id="label-${key}">${label}</span>
+    <span class="slot-count" id="count-${key}"></span>
+    <span class="slot-clear" id="clear-${key}" onclick="clearSlot('${key}', event)">✕</span>
+    <span class="item-tooltip" id="tooltip-${key}"></span>
+  `;
+  div.addEventListener("click", () => selectSlot(key));
+  div.addEventListener("mouseenter", () => {
+    const tooltipEl = document.getElementById(`tooltip-${key}`);
+    if (!tooltipEl) return;
+    const rect = div.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    tooltipEl.classList.toggle("tt-above", spaceBelow < 100);
+  });
+  return div;
+}
+
+function renderItemList() {
+  const list = document.getElementById("item-list");
+  list.innerHTML = "";
+  const filtered = ITEMS.filter(item => {
+    const catOk = state.activeFilter === "all" || item.cat === state.activeFilter;
+    const searchOk = !state.searchQuery || item.name.toLowerCase().includes(state.searchQuery) || item.id.includes(state.searchQuery);
+    return catOk && searchOk;
+  });
+  filtered.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "mc-item";
+    div.innerHTML = `<span class="item-icon">${iconHTML(item)}</span><span class="item-name">${item.name}</span>`;
+    div.title = item.id;
+    div.addEventListener("click", () => placeItem(item));
+    list.appendChild(div);
+  });
+}
+
+function selectSlot(key) {
+  if (state.selected) {
+    document.getElementById(`slot-${state.selected}`)?.classList.remove("selected");
+  }
+  state.selected = key;
+  document.getElementById(`slot-${key}`)?.classList.add("selected");
+  // Only auto-fill from the pin when the slot is empty — re-clicking a
+  // slot that already has an item (possibly hand-customized: a name,
+  // enchantments, a potion type) should just select it for editing, not
+  // silently stamp the pinned config over whatever was already there.
+  if (state.pinnedItem && !state.slots[key]) {
+    applyPinnedItemToSlot(key);
+  }
+  updateConfigPanel();
+  saveKitToStorage();
+}
+
+// Deep-copies the given slot config into the pinned cache. Pinning an
+// empty/no-item state isn't meaningful, so this requires a real item.
+function pinSelectedItem() {
+  const key = state.selected;
+  const s = state.slots[key];
+  if (!key || !s || !s.item) return;
+  state.pinnedItem = JSON.parse(JSON.stringify(s));
+  renderPinnedIndicator();
+  showToast(`Pinned ${s.item.name}`);
+  saveKitToStorage();
+}
+
+function clearPinnedItem() {
+  state.pinnedItem = null;
+  renderPinnedIndicator();
+  saveKitToStorage();
+}
+
+// Stamps a fresh deep copy of the pinned config into the given slot,
+// overwriting whatever was there. Used both by selectSlot's click-to-fill
+// behavior and could be reused elsewhere if needed.
+function applyPinnedItemToSlot(key) {
+  state.slots[key] = JSON.parse(JSON.stringify(state.pinnedItem));
+  refreshSlotUI(key);
+}
+
+function renderPinnedIndicator() {
+  const bar = document.getElementById("pinned-indicator");
+  const iconEl = document.getElementById("pinned-icon");
+  const labelEl = document.getElementById("pinned-label");
+  if (!state.pinnedItem) {
+    bar.style.display = "none";
+    return;
+  }
+  bar.style.display = "flex";
+  const s = state.pinnedItem;
+  iconEl.innerHTML = iconHTML(s.item, s.enchants && s.enchants.length > 0);
+  const name = (s.name && s.name.trim()) ? s.name.trim() : s.item.name;
+  labelEl.textContent = `Pinned: ${name}${s.count > 1 ? ` ×${s.count}` : ""}`;
+}
+
+function placeItem(item) {
+  if (!state.selected) {
+    // Auto-select first empty slot
+    for (let i = 0; i <= 8; i++) {
+      const k = `hotbar_${i}`;
+      if (!state.slots[k]) { selectSlot(k); break; }
+    }
+    if (!state.selected) return;
+  }
+  if (!state.slots[state.selected]) {
+    state.slots[state.selected] = {item, count: 1, name: "", enchants: [], potion: []};
+  } else {
+    state.slots[state.selected].item = item;
+  }
+  refreshSlotUI(state.selected);
+  updateConfigPanel();
+  saveKitToStorage();
+}
+
+function refreshSlotUI(key) {
+  const s = state.slots[key];
+  const iconEl = document.getElementById(`icon-${key}`);
+  const labelEl = document.getElementById(`label-${key}`);
+  const countEl = document.getElementById(`count-${key}`);
+  const slotEl = document.getElementById(`slot-${key}`);
+  const tooltipEl = document.getElementById(`tooltip-${key}`);
+  if (!iconEl) return;
+  if (s && s.item) {
+    iconEl.innerHTML = iconHTML(s.item, s.enchants && s.enchants.length > 0);
+    labelEl.style.display = "none";
+    countEl.textContent = s.count > 1 ? s.count : "";
+    slotEl.classList.add("filled");
+    if (tooltipEl) {
+      tooltipEl.innerHTML = buildTooltipHTML(s);
+      tooltipEl.classList.toggle("enchanted", s.enchants && s.enchants.length > 0);
+    }
+  } else {
+    iconEl.innerHTML = "";
+    const label = key.startsWith("hotbar_") ? key.replace("hotbar_","") :
+                  key.startsWith("inv_") ? key.replace("inv_","") :
+                  key === "offhand" ? "Off" :
+                  ARMOR_SLOTS.find(a=>a.key===key)?.label || key;
+    labelEl.textContent = label;
+    labelEl.style.display = "";
+    countEl.textContent = "";
+    slotEl.classList.remove("filled");
+    if (tooltipEl) tooltipEl.innerHTML = "";
+  }
+}
+
+// Builds a Minecraft-style tooltip for a slot: custom name or default item
+// name on top (tinted purple if enchanted, matching vanilla's convention),
+// enchantments listed below, potion type if set, stack count, and the
+// item's raw id as a faint reference line at the bottom.
+function buildTooltipHTML(s) {
+  const isEnchanted = s.enchants && s.enchants.length > 0;
+  const displayName = (s.name && s.name.trim()) ? s.name.trim() : s.item.name;
+  const escape = str => String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  let html = `<span class="tt-name">${escape(displayName)}</span>`;
+  if (isEnchanted) {
+    s.enchants.forEach(e => {
+      const label = e.id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const roman = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][e.lvl] || e.lvl;
+      html += `<div class="tt-enchant">${escape(label)} ${roman}</div>`;
+    });
+  }
+  if (s.potion && s.potion.length) {
+    const potionLabel = s.potion[s.potion.length - 1].id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    html += `<div class="tt-potion">${escape(potionLabel)}</div>`;
+  }
+  if (s.count > 1) {
+    html += `<div class="tt-count">Count: ${s.count}</div>`;
+  }
+  html += `<div class="tt-id">minecraft:${escape(s.item.id)}</div>`;
+  return html;
+}
+
+function clearSlot(key, e) {
+  e.stopPropagation();
+  delete state.slots[key];
+  refreshSlotUI(key);
+  if (state.selected === key) {
+    document.getElementById(`item-config`).classList.remove("visible");
+  }
+  saveKitToStorage();
+}
+
+function removeSelectedSlot() {
+  if (state.selected) {
+    clearSlot(state.selected, {stopPropagation:()=>{}});
+  }
+}
+
+function updateConfigPanel() {
+  const cfg = document.getElementById("item-config");
+  const key = state.selected;
+  const s = state.slots[key];
+  if (!key || !s) {
+    cfg.classList.remove("visible");
+    return;
+  }
+  cfg.classList.add("visible");
+  document.getElementById("config-title").textContent = `⚙ ${s.item.name} · ${key}`;
+  document.getElementById("cfg-count").value = s.count;
+  document.getElementById("cfg-name").value = s.name || "";
+  renderEnchantRows();
+  renderPotion();
+}
+
+function updateSlotConfig() {
+  const key = state.selected;
+  if (!key || !state.slots[key]) return;
+  state.slots[key].count = Math.max(1, Math.min(64, parseInt(document.getElementById("cfg-count").value)||1));
+  state.slots[key].name = document.getElementById("cfg-name").value;
+  refreshSlotUI(key);
+  saveKitToStorage();
+}
+
+function renderEnchantRows() {
+  const key = state.selected;
+  const s = state.slots[key];
+  const list = document.getElementById("enchant-list");
+  list.innerHTML = "";
+  (s.enchants||[]).forEach((enc, i) => {
+    const row = document.createElement("div");
+    row.className = "enchant-row";
+    const sel = document.createElement("select");
+    ENCHANTMENTS.forEach(e => {
+      const opt = document.createElement("option");
+      opt.value = e; opt.textContent = e.replace(/_/g," ");
+      if (e === enc.id) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener("change", () => { s.enchants[i].id = sel.value; refreshSlotUI(key); saveKitToStorage(); });
+    const lvl = document.createElement("input");
+    lvl.type = "number"; lvl.min=1; lvl.max=5; lvl.value = enc.lvl;
+    lvl.addEventListener("change", () => { s.enchants[i].lvl = parseInt(lvl.value)||1; refreshSlotUI(key); saveKitToStorage(); });
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.addEventListener("click", () => { s.enchants.splice(i,1); renderEnchantRows(); refreshSlotUI(key); saveKitToStorage(); });
+    row.append(sel, lvl, del);
+    list.appendChild(row);
+  });
+}
+
+function addEnchantRow() {
+  const key = state.selected;
+  if (!key || !state.slots[key]) return;
+  state.slots[key].enchants.push({id: "sharpness", lvl: 1});
+  renderEnchantRows();
+  refreshSlotUI(key);
+  saveKitToStorage();
+}
+
+function renderPotion() {
+  const key = state.selected;
+  const s = state.slots[key];
+  const sel = document.getElementById("cfg-potion");
+  sel.innerHTML = "";
+  const noneOpt = document.createElement("option");
+  noneOpt.value = ""; noneOpt.textContent = "None";
+  sel.appendChild(noneOpt);
+  POTIONS.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p; opt.textContent = p.replace(/_/g, " ");
+    sel.appendChild(opt);
+  });
+  sel.value = (s.potion && s.potion.length) ? s.potion[s.potion.length - 1].id : "";
+}
+
+function updatePotionConfig() {
+  const key = state.selected;
+  if (!key || !state.slots[key]) return;
+  const val = document.getElementById("cfg-potion").value;
+  state.slots[key].potion = val ? [{id: val}] : [];
+  refreshSlotUI(key);
+  saveKitToStorage();
+}
+
+function clearAll() {
+  state.slots = {};
+  state.selected = null;
+  document.querySelectorAll(".inv-slot, .hotbar-slot").forEach(el => {
+    const key = el.id.replace("slot-","");
+    refreshSlotUI(key);
+    el.classList.remove("selected");
+  });
+  document.getElementById("item-config").classList.remove("visible");
+  document.getElementById("output-panel").classList.remove("visible");
+  saveKitToStorage();
+}
+
+// --- Kit persistence (localStorage) -------------------------------------
+// Saves enough to fully reconstruct the kit on next load: every filled
+// slot's config, the pinned item cache, and the function name. Items
+// themselves are stored by id only and re-linked to the live ITEMS array
+// on restore (see findItemById), so this stays valid even if ITEMS
+// changes between sessions (icon updates, new items added, etc).
+const STORAGE_KEY = "mc_kit_generator_save_v1";
+
+function serializeSlot(s) {
+  if (!s || !s.item) return null;
+  return { itemId: s.item.id, count: s.count, name: s.name, enchants: s.enchants || [], potion: s.potion || [] };
+}
+
+function deserializeSlot(saved) {
+  if (!saved) return null;
+  const item = findItemById(saved.itemId);
+  if (!item) return null; // item no longer exists in ITEMS — drop it rather than crash
+  return { item, count: saved.count || 1, name: saved.name || "", enchants: saved.enchants || [], potion: saved.potion || [] };
+}
+
+function saveKitToStorage() {
+  try {
+    const savedSlots = {};
+    Object.keys(state.slots).forEach(key => {
+      const serialized = serializeSlot(state.slots[key]);
+      if (serialized) savedSlots[key] = serialized;
+    });
+    const payload = {
+      slots: savedSlots,
+      pinnedItem: serializeSlot(state.pinnedItem),
+      kitName: document.getElementById("kit-name")?.value || ""
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    // localStorage can throw in some contexts (private browsing quota,
+    // disabled storage) — kit persistence just silently no-ops then.
+  }
+}
+
+function loadKitFromStorage() {
+  let payload;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    payload = JSON.parse(raw);
+  } catch (err) {
+    return;
+  }
+  if (!payload) return;
+  Object.keys(payload.slots || {}).forEach(key => {
+    const slot = deserializeSlot(payload.slots[key]);
+    if (slot) state.slots[key] = slot;
+  });
+  if (payload.pinnedItem) {
+    const pinned = deserializeSlot(payload.pinnedItem);
+    if (pinned) state.pinnedItem = pinned;
+  }
+  if (payload.kitName) {
+    const kitNameInput = document.getElementById("kit-name");
+    if (kitNameInput) kitNameInput.value = payload.kitName;
+  }
+}
+
+function slotToMcSlot(key) {
+  if (key === "armor_head") return "armor.head";
+  if (key === "armor_chest") return "armor.chest";
+  if (key === "armor_legs") return "armor.legs";
+  if (key === "armor_feet") return "armor.feet";
+  if (key === "offhand") return "weapon.offhand";
+  if (key.startsWith("hotbar_")) return `hotbar.${key.replace("hotbar_","")}`;
+  if (key.startsWith("inv_")) return `inventory.${key.replace("inv_","")}`;
+  return key;
+}
+
+function generateFunction() {
+  const kitName = document.getElementById("kit-name").value.trim() || "give_kit";
+  const filled = Object.keys(state.slots).filter(k => state.slots[k]?.item);
+  if (!filled.length) { showToast("Add some items first!"); return; }
+
+  let lines = [];
+  lines.push(`# Kit: ${kitName}`);
+  lines.push(`# Generated by MC Kit Generator`);
+  lines.push(`# Place this file at: data/<namespace>/functions/${kitName}.mcfunction`);
+  lines.push(``);
+  lines.push(`# Clear inventory first`);
+  lines.push(`clear @s`);
+  lines.push(``);
+  lines.push(`# Give kit items`);
+
+  filled.forEach(key => {
+    const s = state.slots[key];
+    const mcSlot = slotToMcSlot(key);
+    const itemId = `minecraft:${s.item.id}`;
+    let nbt = buildNBT(s);
+    let cmd = `item replace entity @s ${mcSlot} with ${itemId}${nbt} ${s.count}`;
+    lines.push(cmd);
+  });
+
+  lines.push(``);
+  lines.push(`# Send kit confirmation`);
+  lines.push(`tellraw @s {"text":"Kit [${kitName}] applied!","color":"green"}`);
+
+  const code = lines.join("\n");
+  const out = document.getElementById("output-code");
+  out.textContent = code;
+  document.getElementById("output-panel").classList.add("visible");
+  out.scrollTop = 0;
+}
+
+function buildNBT(s) {
+  const parts = [];
+  if (s.name && s.name.trim()) {
+    const escaped = s.name.replace(/"/g, '\\"');
+    parts.push(`custom_name={text:"${escaped}",italic:false}`);
+  }
+  if (s.enchants && s.enchants.length) {
+    const encStr = s.enchants.map(e => `${e.id}:${e.lvl}`).join(",");
+    parts.push(`enchantments={${encStr}}`);
+  }
+  if (s.potion && s.potion.length) {
+    // potion_contents.potion takes exactly one base potion id (it's a preset
+    // reference, not a list of effects) — if more than one was added in the
+    // UI, only the last one actually has any effect in-game, so we emit that.
+    const chosen = s.potion[s.potion.length - 1].id;
+    parts.push(`potion_contents={potion:"minecraft:${chosen}"}`);
+  }
+  if (!parts.length) return "";
+  return `[${parts.join(",")}]`;
+}
+
+function copyCode() {
+  const code = document.getElementById("output-code").textContent;
+  navigator.clipboard.writeText(code).then(() => showToast("Copied to clipboard!"));
+}
+
+function downloadFunction() {
+  const code = document.getElementById("output-code").textContent;
+  const kitName = (document.getElementById("kit-name").value.trim() || "give_kit");
+  const blob = new Blob([code], {type: "text/plain"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${kitName}.mcfunction`;
+  a.click();
+  showToast("Downloaded!");
+}
+
+function closeOutput() {
+  document.getElementById("output-panel").classList.remove("visible");
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+init();
+</script>
+</body>
+</html>
